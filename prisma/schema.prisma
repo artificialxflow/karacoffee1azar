@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProductCategory {
+  SINGLE_ORIGIN
+  BLEND
+  ESPRESSO
+}
+
+enum RoastLevel {
+  LIGHT
+  MEDIUM
+  DARK
+}
+
+enum RoastBatchStatus {
+  PLANNED
+  ROASTING
+  COMPLETED
+  CANCELLED
+}
+
+enum WholesaleOrderStatus {
+  PENDING
+  CONTACTED
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum UserRole {
+  ADMIN
+  PRODUCTION_MANAGER
+  SALES_MANAGER
+}
+
+model Product {
+  id                 String          @id @default(uuid()) @db.Uuid
+  sku                String          @unique
+  name               String
+  slug               String          @unique
+  category           ProductCategory
+  roastLevel         RoastLevel?
+  description        String?
+  netWeightGrams     Int
+  wholesalePriceRial BigInt
+  retailPriceRial    BigInt?
+  stockKg            Decimal         @default(0) @db.Decimal(10, 3)
+  isActive           Boolean         @default(true)
+  roastBatches       RoastBatch[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([category, isActive])
+}
+
+model GreenBeanInventory {
+  id            String       @id @default(uuid()) @db.Uuid
+  lotCode       String       @unique
+  originCountry String
+  region        String?
+  producer      String?
+  process       String
+  harvestSeason String?
+  stockKg       Decimal      @db.Decimal(10, 3)
+  reservedKg    Decimal      @default(0) @db.Decimal(10, 3)
+  unitCostRial  BigInt
+  minStockKg    Decimal      @db.Decimal(10, 3)
+  supplierName  String?
+  receivedAt    DateTime
+  notes         String?
+  roastBatches  RoastBatch[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([originCountry, region])
+}
+
+model RoastBatch {
+  id                   String             @id @default(uuid()) @db.Uuid
+  batchCode            String             @unique
+  greenBeanInventoryId String             @db.Uuid
+  productId            String?            @db.Uuid
+  plannedGreenKg       Decimal            @db.Decimal(10, 3)
+  actualGreenKg        Decimal?           @db.Decimal(10, 3)
+  outputRoastedKg      Decimal?           @db.Decimal(10, 3)
+  roastProfile         String?
+  roastedAt            DateTime?
+  roastMaster          String?
+  status               RoastBatchStatus   @default(PLANNED)
+  notes                String?
+  greenBeanInventory   GreenBeanInventory @relation(fields: [greenBeanInventoryId], references: [id], onDelete: Restrict)
+  product              Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([status, roastedAt])
+  @@index([greenBeanInventoryId])
+}
+
+model WholesaleOrder {
+  id                  String               @id @default(uuid()) @db.Uuid
+  orderNumber         String               @unique
+  businessName        String
+  contactName         String
+  phone               String
+  email               String?
+  province            String
+  city                String
+  deliveryAddress     String
+  items               Json
+  subtotalRial        BigInt
+  discountRial        BigInt               @default(0)
+  shippingCostRial    BigInt               @default(0)
+  totalRial           BigInt
+  status              WholesaleOrderStatus @default(PENDING)
+  requestedDeliveryAt DateTime?
+  customerNote        String?
+  internalNote        String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([status, createdAt])
+  @@index([phone])
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  fullName     String
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(SALES_MANAGER)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([role, isActive])
+}
